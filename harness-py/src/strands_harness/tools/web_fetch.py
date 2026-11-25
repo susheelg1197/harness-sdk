@@ -47,8 +47,25 @@ _SUMMARIZER_PROMPT = (
 )
 
 
+# An image's alt text is often the content itself (a "supported" check mark in a table), so it is kept
+# as "[image: <alt>]" before the other tags are stripped. An empty alt marks a decorative image: dropped.
+_IMG_TAG = re.compile(r"(?is)<img\b([^>]*)>")
+# One attribute of a tag, read left to right so a quoted value (title="alt=x") is never taken for a name.
+_ATTR = re.compile(r"""([^\s"'>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+)))?""")
+
+
+def _img_alt(match: re.Match[str]) -> str:
+    for attr in _ATTR.finditer(match.group(1)):
+        if attr.group(1).lower() == "alt":
+            value = next((g for g in attr.groups()[1:] if g is not None), "")
+            text = " ".join(value.split())
+            return f" [image: {text}] " if text else " "
+    return " "
+
+
 def _html_to_text(html: str) -> str:
     html = re.sub(r"(?is)<(script|style)\b.*?</\1>", " ", html)
+    html = _IMG_TAG.sub(_img_alt, html)
     text = re.sub(r"(?s)<[^>]+>", " ", html)
     text = re.sub(r"[ \t]+", " ", text)
     text = re.sub(r"\n\s*\n\s*\n+", "\n\n", text)

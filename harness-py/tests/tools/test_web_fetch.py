@@ -24,6 +24,28 @@ def test_html_to_text_strips_tags_and_scripts():
     assert web_fetch_module._html_to_text(html) == "Hello world"
 
 
+def test_html_to_text_keeps_image_alt_text():
+    # A support matrix drawn with check-mark images: the alt text is the only thing that tells the two
+    # columns apart (#6584).
+    html = (
+        "<table><tr><td>Cross-region inference</td>"
+        '<td><img alt="supported" src="yes.png"></td>'
+        "<td><img src='no.png' ALT='not-supported'/></td></tr></table>"
+    )
+    text = web_fetch_module._html_to_text(html)
+    assert text == "Cross-region inference [image: supported] [image: not-supported]"
+
+
+def test_html_to_text_drops_images_without_alt_text():
+    html = 'a<img src="x.png">b<img alt="" src="spacer.gif">c<img alt=unquoted>d'
+    assert web_fetch_module._html_to_text(html) == "a b c [image: unquoted] d"
+
+
+def test_html_to_text_does_not_read_alt_from_other_attributes():
+    html = '<img data-alt="decoy" src="x.png"> <img title="alt=no" alt="yes">'
+    assert web_fetch_module._html_to_text(html) == "[image: yes]"
+
+
 class _Sandbox:
     """Fake sandbox: curl "writes" ``body`` to the requested file and reports ``content_type``/``url``."""
 
